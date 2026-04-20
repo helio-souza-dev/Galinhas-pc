@@ -35,6 +35,17 @@ export default function NovaVendaPage() {
   const [clienteId, setClienteId] = useState('')
   const [itens, setItens] = useState<ItemVenda[]>([])
   const [frete, setFrete] = useState('')
+
+  // Adicione isso junto com os outros states (linha 30+)
+  const [dataEntrega, setDataEntrega] = useState('')
+
+// Adicione este useEffect para pedir permissão de notificação quando a tela abrir
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+    Notification.requestPermission()
+  }
+}, [])
+
   const [formaPagamento, setFormaPagamento] = useState<
     'dinheiro' | 'pix' | 'cartao' | 'fiado'
   >('pix')
@@ -163,23 +174,33 @@ export default function NovaVendaPage() {
     const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
     const valorPago = formaPagamento === 'fiado' ? 0 : total
 
-    try {
-      await addVenda({
-        clienteId,
-        clienteNome: cliente.nome,
-        itens,
-        subtotal,
-        frete: freteValor,
-        total,
-        formaPagamento,
-        status,
-        valorPago,
-        observacoes,
-      })
+    // Atualize o try/catch dentro do handleSubmit
+try {
+  await addVenda({
+    clienteId,
+    clienteNome: cliente.nome,
+    itens,
+    subtotal,
+    frete: freteValor,
+    total,
+    formaPagamento,
+    status,
+    valorPago,
+    observacoes,
+    dataEntrega, // <-- ADICIONADO AQUI
+  })
 
-      toast.success('Venda registrada com sucesso!')
-      router.push('/vendas')
-    } catch (error) {
+  // Disparar notificação se tiver permissão
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Novo Pedido 🥚', {
+      body: `Entrega para ${cliente.nome} registrada!`,
+      icon: '/icon-192.png'
+    })
+  }
+
+  toast.success('Venda registrada com sucesso!')
+  router.push('/vendas')
+} catch (error) {
       console.error('Erro ao registrar venda:', error)
       toast.error('Erro ao registrar venda')
       setLoading(false)

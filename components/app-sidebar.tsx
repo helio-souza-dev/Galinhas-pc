@@ -12,12 +12,15 @@ import {
   Menu,
   X,
   Egg,
+  Bell,
+  Calendar
 } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/agenda', label: 'Agenda', icon: Calendar }, // <-- ADICIONADO AQUI
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/produtos', label: 'Produtos', icon: Package },
   { href: '/vendas', label: 'Vendas', icon: ShoppingCart },
@@ -32,18 +35,27 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card px-4 md:hidden">
-        <div className="flex items-center gap-2">
-          <Egg className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-foreground">Granja Gestao</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </header>
+  <div className="flex items-center gap-2">
+    <Egg className="h-6 w-6 text-primary" />
+    <span className="font-semibold text-foreground">Granja Gestao</span>
+  </div>
+  
+  <div className="flex gap-1">
+    {/* Ícone de Notificação Mobile */}
+    <Button variant="ghost" size="icon" className="relative">
+      <Bell className="h-5 w-5" />
+      <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+    </Button>
+
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setMobileOpen(!mobileOpen)}
+    >
+      {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+    </Button>
+  </div>
+</header>
 
       {/* Mobile Navigation Overlay */}
       {mobileOpen && (
@@ -61,10 +73,18 @@ export function AppSidebar({ children }: { children: React.ReactNode }) {
           'md:static md:z-0'
         )}
       >
-        {/* Logo */}
-        <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4 md:h-16">
-          <Egg className="h-7 w-7 text-sidebar-primary" />
-          <span className="text-lg font-semibold">Granja Gestao</span>
+        {/* Logo Desktop */}
+        <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4 md:h-16">
+          <div className="flex items-center gap-2">
+            <Egg className="h-7 w-7 text-sidebar-primary" />
+            <span className="text-lg font-semibold">Granja Gestao</span>
+          </div>
+          
+          {/* Ícone de Notificação Desktop oculto no mobile */}
+          <Button variant="ghost" size="icon" className="relative hidden md:flex">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500" />
+          </Button>
         </div>
 
         {/* Navigation */}

@@ -29,6 +29,7 @@ export interface ItemVenda {
   subtotal: number
 }
 
+// Atualize a interface Venda
 export interface Venda {
   id: string
   clienteId: string
@@ -41,6 +42,17 @@ export interface Venda {
   status: 'pendente' | 'pago' | 'parcial'
   valorPago: number
   observacoes?: string
+  dataEntrega?: string // NOVO: Data programada para entrega
+  createdAt: string
+}
+
+// Adicione a interface Notificacao
+export interface Notificacao {
+  id: string
+  titulo: string
+  mensagem: string
+  lida: boolean
+  vendaId?: string
   createdAt: string
 }
 
