@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   getVendas,
   getClientes,
@@ -19,6 +20,7 @@ import {
   Calendar,
   ArrowUp,
   ArrowDown,
+  RefreshCw,
 } from 'lucide-react'
 import {
   BarChart,
@@ -38,14 +40,35 @@ export default function RelatoriosPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [periodo, setPeriodo] = useState<'semana' | 'mes' | 'ano'>('mes')
 
-  useEffect(() => {
-    setVendas(getVendas())
-    setClientes(getClientes())
-    setMovimentacoes(getMovimentacoes())
-    setLoading(false)
+  const loadData = useCallback(async () => {
+    try {
+      const [vendasData, clientesData, movimentacoesData] = await Promise.all([
+        getVendas(),
+        getClientes(),
+        getMovimentacoes(),
+      ])
+      setVendas(vendasData)
+      setClientes(clientesData)
+      setMovimentacoes(movimentacoesData)
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await loadData()
+  }
 
   const filtrarPorPeriodo = (dataString: string) => {
     const data = new Date(dataString)
@@ -159,11 +182,22 @@ export default function RelatoriosPage() {
   return (
     <AppSidebar>
       <div className="p-4 md:p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Relatorios</h1>
-          <p className="text-sm text-muted-foreground">
-            Analise o desempenho do seu negocio
-          </p>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Relatorios</h1>
+            <p className="text-sm text-muted-foreground">
+              Analise o desempenho do seu negocio
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleSync}
+            disabled={syncing}
+            title="Sincronizar dados"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
 
         {/* Filtro de Periodo */}
@@ -411,7 +445,7 @@ export default function RelatoriosPage() {
                               {mov.produtoNome}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {mov.motivo} • {formatDate(mov.createdAt)}
+                              {mov.motivo} - {formatDate(mov.createdAt)}
                             </p>
                           </div>
                         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,6 @@ import {
   getClientes,
   getProdutos,
   getVendas,
-  seedInitialData,
   formatCurrency,
   formatDate,
 } from '@/lib/storage'
@@ -20,6 +19,7 @@ import {
   TrendingUp,
   Plus,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -28,14 +28,34 @@ export default function Dashboard() {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [vendas, setVendas] = useState<Venda[]>([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const loadData = useCallback(async () => {
+    try {
+      const [clientesData, produtosData, vendasData] = await Promise.all([
+        getClientes(),
+        getProdutos(),
+        getVendas(),
+      ])
+      setClientes(clientesData)
+      setProdutos(produtosData)
+      setVendas(vendasData)
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    seedInitialData()
-    setClientes(getClientes())
-    setProdutos(getProdutos())
-    setVendas(getVendas())
-    setLoading(false)
-  }, [])
+    loadData()
+  }, [loadData])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await loadData()
+  }
 
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
@@ -87,12 +107,23 @@ export default function Dashboard() {
               })}
             </p>
           </div>
-          <Link href="/vendas/nova">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Venda
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sincronizar dados"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
-          </Link>
+            <Link href="/vendas/nova">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Venda
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Stats Cards */}

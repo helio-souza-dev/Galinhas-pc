@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { getProdutos, updateProduto } from '@/lib/storage'
+import { getProdutoById, updateProduto } from '@/lib/storage'
 import { Produto } from '@/lib/types'
 import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
@@ -24,6 +24,7 @@ export default function EditarProdutoPage() {
   const router = useRouter()
   const params = useParams()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [produto, setProduto] = useState<Produto | null>(null)
   const [form, setForm] = useState({
     nome: '',
@@ -33,17 +34,26 @@ export default function EditarProdutoPage() {
   })
 
   useEffect(() => {
-    const produtos = getProdutos()
-    const found = produtos.find((p) => p.id === params.id)
-    if (found) {
-      setProduto(found)
-      setForm({
-        nome: found.nome,
-        tipo: found.tipo,
-        unidade: found.unidade,
-        preco: found.preco.toString(),
-      })
+    const loadProduto = async () => {
+      try {
+        const found = await getProdutoById(params.id as string)
+        if (found) {
+          setProduto(found)
+          setForm({
+            nome: found.nome,
+            tipo: found.tipo,
+            unidade: found.unidade,
+            preco: found.preco.toString(),
+          })
+        }
+      } catch (error) {
+        console.error('Erro ao carregar produto:', error)
+        toast.error('Erro ao carregar produto')
+      } finally {
+        setLoadingData(false)
+      }
     }
+    loadProduto()
   }, [params.id])
 
   const getQuantidadePorUnidade = (unidade: string): number => {
@@ -57,7 +67,7 @@ export default function EditarProdutoPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -75,16 +85,32 @@ export default function EditarProdutoPage() {
       return
     }
 
-    updateProduto(params.id as string, {
-      nome: form.nome,
-      tipo: form.tipo,
-      unidade: form.unidade,
-      quantidade: getQuantidadePorUnidade(form.unidade),
-      preco,
-    })
+    try {
+      await updateProduto(params.id as string, {
+        nome: form.nome,
+        tipo: form.tipo,
+        unidade: form.unidade,
+        quantidade: getQuantidadePorUnidade(form.unidade),
+        preco,
+      })
 
-    toast.success('Produto atualizado com sucesso!')
-    router.push('/produtos')
+      toast.success('Produto atualizado com sucesso!')
+      router.push('/produtos')
+    } catch (error) {
+      console.error('Erro ao atualizar produto:', error)
+      toast.error('Erro ao atualizar produto')
+      setLoading(false)
+    }
+  }
+
+  if (loadingData) {
+    return (
+      <AppSidebar>
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppSidebar>
+    )
   }
 
   if (!produto) {

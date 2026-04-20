@@ -26,7 +26,7 @@ export default function NovoClientePage() {
     observacoes: '',
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -36,9 +36,15 @@ export default function NovoClientePage() {
       return
     }
 
-    addCliente(form)
-    toast.success('Cliente cadastrado com sucesso!')
-    router.push('/clientes')
+    try {
+      await addCliente(form)
+      toast.success('Cliente cadastrado com sucesso!')
+      router.push('/clientes')
+    } catch (error) {
+      console.error('Erro ao cadastrar cliente:', error)
+      toast.error('Erro ao cadastrar cliente')
+      setLoading(false)
+    }
   }
 
   return (
