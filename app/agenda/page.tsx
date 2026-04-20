@@ -28,11 +28,16 @@ export default function AgendaPage() {
     load()
   }, [])
 
-  // Filtra as vendas que têm dataEntrega igual ao dia selecionado no calendário
+  // Filtra as vendas corrigindo o fuso horário/timestamp
   const entregasDoDia = vendas.filter((venda) => {
     if (!venda.dataEntrega || !date) return false
-    // Compara apenas o Ano-Mês-Dia
-    return venda.dataEntrega === format(date, 'yyyy-MM-dd')
+    
+    // Separa "2026-04-20" caso venha como "2026-04-20T00:00:00Z"
+    const dataVendaLimpa = venda.dataEntrega.split('T')[0]
+    const dataSelecionada = format(date, 'yyyy-MM-dd')
+
+    // Só mostra se as datas baterem E a venda NÃO for do tipo retirada
+    return dataVendaLimpa === dataSelecionada && venda.tipoVenda !== 'retirada'
   })
 
   if (loading) {
