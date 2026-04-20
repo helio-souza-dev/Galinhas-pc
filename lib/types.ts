@@ -29,7 +29,6 @@ export interface ItemVenda {
   subtotal: number
 }
 
-// Atualize a interface Venda
 export interface Venda {
   id: string
   clienteId: string
@@ -39,11 +38,14 @@ export interface Venda {
   frete: number
   total: number
   formaPagamento: 'dinheiro' | 'pix' | 'cartao' | 'fiado'
-  status: 'pendente' | 'pago' | 'parcial'
+  status: 'pendente' | 'pago' | 'parcial' // Status do pagamento
   valorPago: number
   observacoes?: string
-  dataEntrega?: string // NOVO: Data programada para entrega
+  tipoVenda: 'retirada' | 'entrega' // 'retirada' para o que já foi entregue na hora
+  dataEntrega?: string
+  statusEntrega?: 'pendente' | 'preparando' | 'em_rota' | 'entregue'
   createdAt: string
+  
 }
 
 // Adicione a interface Notificacao

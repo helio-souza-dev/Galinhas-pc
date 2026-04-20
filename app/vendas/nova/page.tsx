@@ -71,6 +71,9 @@ export default function NovaVendaPage() {
     loadData()
   }, [loadData])
 
+  const [tipoVenda, setTipoVenda] = useState<'retirada' | 'entrega'>('entrega')
+  const [dataEntrega, setDataEntrega] = useState('')
+
   const adicionarProduto = (produtoId: string) => {
     const produto = produtos.find((p) => p.id === produtoId)
     if (!produto) return
@@ -171,41 +174,44 @@ export default function NovaVendaPage() {
       return
     }
 
-    const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
+   const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
     const valorPago = formaPagamento === 'fiado' ? 0 : total
 
-    // Atualize o try/catch dentro do handleSubmit
-try {
-  await addVenda({
-    clienteId,
-    clienteNome: cliente.nome,
-    itens,
-    subtotal,
-    frete: freteValor,
-    total,
-    formaPagamento,
-    status,
-    valorPago,
-    observacoes,
-    dataEntrega, // <-- ADICIONADO AQUI
-  })
+    // NOVO: Define se o pedido vai para a tela de logística ou se já foi entregue
+    const statusEntrega = tipoVenda === 'retirada' ? 'entregue' : 'pendente'
+    const dataFinal = tipoVenda === 'entrega' ? dataEntrega : new Date().toISOString().split('T')[0]
 
-  // Disparar notificação se tiver permissão
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('Novo Pedido 🥚', {
-      body: `Entrega para ${cliente.nome} registrada!`,
-      icon: '/icon-192.png'
-    })
-  }
+    try {
+      await addVenda({
+        clienteId,
+        clienteNome: cliente.nome,
+        itens,
+        subtotal,
+        frete: freteValor,
+        total,
+        formaPagamento,
+        status,
+        valorPago,
+        observacoes,
+        tipoVenda,           // <-- ADICIONADO: Avisa se é entrega ou retirada
+        dataEntrega: dataFinal, // <-- Usa a data escolhida ou a de hoje se for retirada
+        statusEntrega        // <-- ADICIONADO: Manda para o sistema Kanban
+      })
 
-  toast.success('Venda registrada com sucesso!')
-  router.push('/vendas')
-} catch (error) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Novo Pedido 🥚', {
+          body: `Pedido para ${cliente.nome} registrado!`,
+          icon: '/icon-192.png'
+        })
+      }
+
+      toast.success('Venda registrada com sucesso!')
+      router.push('/vendas')
+    } catch (error) {
       console.error('Erro ao registrar venda:', error)
       toast.error('Erro ao registrar venda')
       setLoading(false)
     }
-  }
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId)
 
@@ -408,37 +414,35 @@ try {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="frete">Frete (R$)</Label>
-                      <Input
-                        id="frete"
-                        value={frete}
-                        onChange={(e) => setFrete(e.target.value)}
-                        placeholder="0,00"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Forma de Pagamento</Label>
-                      <Select
-                        value={formaPagamento}
-                        onValueChange={(v) =>
-                          setFormaPagamento(
-                            v as 'dinheiro' | 'pix' | 'cartao' | 'fiado'
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pix">PIX</SelectItem>
-                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                          <SelectItem value="cartao">Cartao</SelectItem>
-                          <SelectItem value="fiado">Fiado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+  <div className="space-y-2">
+    <Label>Tipo de Venda</Label>
+    <Select 
+      value={tipoVenda} 
+      onValueChange={(v: 'retirada' | 'entrega') => setTipoVenda(v)}
+    >
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="entrega">Entrega Programada</SelectItem>
+        <SelectItem value="retirada">Já Entregue (Retirada)</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+
+  {tipoVenda === 'entrega' && (
+    <div className="space-y-2">
+      <Label htmlFor="dataEntrega">Data da Entrega</Label>
+      <Input
+        id="dataEntrega"
+        type="date"
+        value={dataEntrega}
+        onChange={(e) => setDataEntrega(e.target.value)}
+        required={tipoVenda === 'entrega'}
+      />
+    </div>
+  )}
+</div>
 
                   <div className="space-y-2">
                     <Label htmlFor="observacoes">Observacoes</Label>

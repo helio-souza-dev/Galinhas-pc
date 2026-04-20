@@ -575,3 +575,19 @@ export function getGoogleMapsLink(endereco: string, cidade: string, bairro: stri
   const query = encodeURIComponent(`${endereco}, ${bairro}, ${cidade}`)
   return `https://www.google.com/maps/search/?api=1&query=${query}`
 }
+
+// Adicione no final do arquivo lib/storage.ts
+export async function atualizarStatusEntrega(vendaId: string, novoStatus: 'pendente' | 'preparando' | 'em_rota' | 'entregue') {
+  const { error } = await supabase
+    .from('vendas')
+    .update({ status_entrega: novoStatus })
+    .eq('id', vendaId);
+
+  if (error) {
+    console.error('Erro ao atualizar status de entrega:', error);
+    throw new Error('Falha ao atualizar status de entrega');
+  }
+  
+  return true;
+}
+
