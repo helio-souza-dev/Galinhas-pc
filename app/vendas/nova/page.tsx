@@ -35,21 +35,19 @@ export default function NovaVendaPage() {
   const [clienteId, setClienteId] = useState('')
   const [itens, setItens] = useState<ItemVenda[]>([])
   const [frete, setFrete] = useState('')
-
-  // Adicione isso junto com os outros states (linha 30+)
+  const [formaPagamento, setFormaPagamento] = useState<'dinheiro' | 'pix' | 'cartao' | 'fiado'>('pix')
+  const [observacoes, setObservacoes] = useState('')
+  
+  // Novos estados para a logística
+  const [tipoVenda, setTipoVenda] = useState<'retirada' | 'entrega'>('entrega')
   const [dataEntrega, setDataEntrega] = useState('')
 
-// Adicione este useEffect para pedir permissão de notificação quando a tela abrir
+  // Pede permissão de notificação quando a tela abre
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'granted') {
-    Notification.requestPermission()
-  }
-}, [])
-
-  const [formaPagamento, setFormaPagamento] = useState<
-    'dinheiro' | 'pix' | 'cartao' | 'fiado'
-  >('pix')
-  const [observacoes, setObservacoes] = useState('')
+      Notification.requestPermission()
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     try {
@@ -70,9 +68,6 @@ export default function NovaVendaPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
-
-  const [tipoVenda, setTipoVenda] = useState<'retirada' | 'entrega'>('entrega')
-  const [dataEntrega, setDataEntrega] = useState('')
 
   const adicionarProduto = (produtoId: string) => {
     const produto = produtos.find((p) => p.id === produtoId)
@@ -169,15 +164,14 @@ export default function NovaVendaPage() {
 
     const cliente = clientes.find((c) => c.id === clienteId)
     if (!cliente) {
-      toast.error('Cliente nao encontrado')
+      toast.error('Cliente não encontrado')
       setLoading(false)
       return
     }
 
-   const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
+    const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
     const valorPago = formaPagamento === 'fiado' ? 0 : total
 
-    // NOVO: Define se o pedido vai para a tela de logística ou se já foi entregue
     const statusEntrega = tipoVenda === 'retirada' ? 'entregue' : 'pendente'
     const dataFinal = tipoVenda === 'entrega' ? dataEntrega : new Date().toISOString().split('T')[0]
 
@@ -193,9 +187,9 @@ export default function NovaVendaPage() {
         status,
         valorPago,
         observacoes,
-        tipoVenda,           // <-- ADICIONADO: Avisa se é entrega ou retirada
-        dataEntrega: dataFinal, // <-- Usa a data escolhida ou a de hoje se for retirada
-        statusEntrega        // <-- ADICIONADO: Manda para o sistema Kanban
+        tipoVenda,
+        dataEntrega: dataFinal,
+        statusEntrega,
       })
 
       if ('Notification' in window && Notification.permission === 'granted') {
@@ -212,6 +206,7 @@ export default function NovaVendaPage() {
       toast.error('Erro ao registrar venda')
       setLoading(false)
     }
+  }
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId)
 
@@ -241,9 +236,7 @@ export default function NovaVendaPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Coluna Esquerda - Selecao */}
             <div className="space-y-4">
-              {/* Cliente */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Cliente</CardTitle>
@@ -296,7 +289,6 @@ export default function NovaVendaPage() {
                 </CardContent>
               </Card>
 
-              {/* Produtos */}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Adicionar Produtos</CardTitle>
@@ -336,7 +328,6 @@ export default function NovaVendaPage() {
               </Card>
             </div>
 
-            {/* Coluna Direita - Carrinho */}
             <div className="space-y-4">
               <Card>
                 <CardHeader className="pb-3">
@@ -407,55 +398,87 @@ export default function NovaVendaPage() {
                 </CardContent>
               </Card>
 
-              {/* Valores e Pagamento */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Pagamento</CardTitle>
+                  <CardTitle className="text-base">Pagamento e Logística</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 sm:grid-cols-2">
-  <div className="space-y-2">
-    <Label>Tipo de Venda</Label>
-    <Select 
-      value={tipoVenda} 
-      onValueChange={(v: 'retirada' | 'entrega') => setTipoVenda(v)}
-    >
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="entrega">Entrega Programada</SelectItem>
-        <SelectItem value="retirada">Já Entregue (Retirada)</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
+                    <div className="space-y-2">
+                      <Label>Tipo de Venda</Label>
+                      <Select 
+                        value={tipoVenda} 
+                        onValueChange={(v: 'retirada' | 'entrega') => setTipoVenda(v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="entrega">Entrega Programada</SelectItem>
+                          <SelectItem value="retirada">Já Entregue (Retirada)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-  {tipoVenda === 'entrega' && (
-    <div className="space-y-2">
-      <Label htmlFor="dataEntrega">Data da Entrega</Label>
-      <Input
-        id="dataEntrega"
-        type="date"
-        value={dataEntrega}
-        onChange={(e) => setDataEntrega(e.target.value)}
-        required={tipoVenda === 'entrega'}
-      />
-    </div>
-  )}
-</div>
+                    {tipoVenda === 'entrega' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="dataEntrega">Data da Entrega</Label>
+                        <Input
+                          id="dataEntrega"
+                          type="date"
+                          value={dataEntrega}
+                          onChange={(e) => setDataEntrega(e.target.value)}
+                          required={tipoVenda === 'entrega'}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="frete">Frete (R$)</Label>
+                      <Input
+                        id="frete"
+                        value={frete}
+                        onChange={(e) => setFrete(e.target.value)}
+                        placeholder="0,00"
+                        disabled={tipoVenda === 'retirada'}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Forma de Pagamento</Label>
+                      <Select
+                        value={formaPagamento}
+                        onValueChange={(v) =>
+                          setFormaPagamento(
+                            v as 'dinheiro' | 'pix' | 'cartao' | 'fiado'
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                          <SelectItem value="cartao">Cartão</SelectItem>
+                          <SelectItem value="fiado">Fiado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="observacoes">Observacoes</Label>
+                    <Label htmlFor="observacoes">Observações</Label>
                     <Textarea
                       id="observacoes"
                       value={observacoes}
                       onChange={(e) => setObservacoes(e.target.value)}
-                      placeholder="Observacoes da venda..."
+                      placeholder="Ex: Troco para 50, cor da casa..."
                       rows={2}
                     />
                   </div>
 
-                  {/* Resumo */}
                   <div className="border-t border-border pt-4 space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
@@ -464,12 +487,14 @@ export default function NovaVendaPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Frete</span>
                       <span className="text-foreground">
-                        {formatCurrency(freteValor)}
+                        {formatCurrency(tipoVenda === 'retirada' ? 0 : freteValor)}
                       </span>
                     </div>
                     <div className="flex justify-between text-lg font-bold">
                       <span className="text-foreground">Total</span>
-                      <span className="text-primary">{formatCurrency(total)}</span>
+                      <span className="text-primary">
+                        {formatCurrency(subtotal + (tipoVenda === 'retirada' ? 0 : freteValor))}
+                      </span>
                     </div>
                   </div>
 
