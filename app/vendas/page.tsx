@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import {
   getGoogleMapsLink,
 } from '@/lib/storage'
 import { Venda, Cliente } from '@/lib/types'
-import { Plus, Search, MapPin, Eye, DollarSign } from 'lucide-react'
+import { Plus, Search, MapPin, Eye, DollarSign, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -34,13 +34,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default function VendasPage() {
   const [vendas, setVendas] = useState<Venda[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [filtro, setFiltro] = useState<'todas' | 'pendente' | 'pago'>('todas')
   const [pagamentoDialog, setPagamentoDialog] = useState<{
     open: boolean
@@ -51,11 +52,31 @@ export default function VendasPage() {
     'pix'
   )
 
-  useEffect(() => {
-    setVendas(getVendas())
-    setClientes(getClientes())
-    setLoading(false)
+  const loadData = useCallback(async () => {
+    try {
+      const [vendasData, clientesData] = await Promise.all([
+        getVendas(),
+        getClientes(),
+      ])
+      setVendas(vendasData)
+      setClientes(clientesData)
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+      toast.error('Erro ao carregar dados')
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await loadData()
+  }
 
   const getClienteEndereco = (clienteId: string) => {
     const cliente = clientes.find((c) => c.id === clienteId)
@@ -83,7 +104,7 @@ export default function VendasPage() {
     return matchSearch
   })
 
-  const handlePagamento = () => {
+  const handlePagamento = async () => {
     if (!pagamentoDialog.venda || !valorPagamento) return
 
     const valor = parseFloat(valorPagamento.replace(',', '.'))
@@ -98,16 +119,21 @@ export default function VendasPage() {
       return
     }
 
-    addPagamento({
-      vendaId: pagamentoDialog.venda.id,
-      valor,
-      formaPagamento,
-    })
+    try {
+      await addPagamento({
+        vendaId: pagamentoDialog.venda.id,
+        valor,
+        formaPagamento,
+      })
 
-    setVendas(getVendas())
-    setPagamentoDialog({ open: false, venda: null })
-    setValorPagamento('')
-    toast.success('Pagamento registrado com sucesso!')
+      await loadData()
+      setPagamentoDialog({ open: false, venda: null })
+      setValorPagamento('')
+      toast.success('Pagamento registrado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao registrar pagamento:', error)
+      toast.error('Erro ao registrar pagamento')
+    }
   }
 
   const totalPendente = vendas
@@ -131,15 +157,26 @@ export default function VendasPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Vendas</h1>
             <p className="text-sm text-muted-foreground">
-              {vendas.length} venda(s) • {formatCurrency(totalPendente)} pendente
+              {vendas.length} venda(s) - {formatCurrency(totalPendente)} pendente
             </p>
           </div>
-          <Link href="/vendas/nova">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Venda
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sincronizar dados"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
-          </Link>
+            <Link href="/vendas/nova">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Venda
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mb-4 relative">
@@ -211,10 +248,10 @@ export default function VendasPage() {
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {formatDateTime(venda.createdAt)} • #{venda.id.slice(-6)}
+                          {formatDateTime(venda.createdAt)} - #{venda.id.slice(-6)}
                         </p>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {venda.itens.length} item(s) • {venda.formaPagamento}
+                          {venda.itens.length} item(s) - {venda.formaPagamento}
                         </p>
                       </div>
 
@@ -278,7 +315,7 @@ export default function VendasPage() {
                                 <DialogHeader>
                                   <DialogTitle>Registrar Pagamento</DialogTitle>
                                   <DialogDescription>
-                                    Venda de {venda.clienteNome} •{' '}
+                                    Venda de {venda.clienteNome} -{' '}
                                     {formatCurrency(restante)} restante
                                   </DialogDescription>
                                 </DialogHeader>

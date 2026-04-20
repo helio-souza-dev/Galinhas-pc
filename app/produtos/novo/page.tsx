@@ -41,7 +41,7 @@ export default function NovoProdutoPage() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -66,17 +66,23 @@ export default function NovoProdutoPage() {
       return
     }
 
-    addProduto({
-      nome: form.nome,
-      tipo: form.tipo,
-      unidade: form.unidade,
-      quantidade: getQuantidadePorUnidade(form.unidade),
-      preco,
-      estoque,
-    })
+    try {
+      await addProduto({
+        nome: form.nome,
+        tipo: form.tipo,
+        unidade: form.unidade,
+        quantidade: getQuantidadePorUnidade(form.unidade),
+        preco,
+        estoque,
+      })
 
-    toast.success('Produto cadastrado com sucesso!')
-    router.push('/produtos')
+      toast.success('Produto cadastrado com sucesso!')
+      router.push('/produtos')
+    } catch (error) {
+      console.error('Erro ao cadastrar produto:', error)
+      toast.error('Erro ao cadastrar produto')
+      setLoading(false)
+    }
   }
 
   return (

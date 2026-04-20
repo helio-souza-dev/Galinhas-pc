@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import {
   formatCurrency,
 } from '@/lib/storage'
 import { Produto } from '@/lib/types'
-import { Plus, Search, Trash2, Pencil, Package, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Search, Trash2, Pencil, Package, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -42,6 +42,7 @@ export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
   const [estoqueDialog, setEstoqueDialog] = useState<{
     open: boolean
     produto: Produto | null
@@ -50,22 +51,44 @@ export default function ProdutosPage() {
   const [quantidade, setQuantidade] = useState('')
   const [motivo, setMotivo] = useState('')
 
-  useEffect(() => {
-    setProdutos(getProdutos())
-    setLoading(false)
+  const loadData = useCallback(async () => {
+    try {
+      const data = await getProdutos()
+      setProdutos(data)
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error)
+      toast.error('Erro ao carregar produtos')
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await loadData()
+  }
 
   const produtosFiltrados = produtos.filter((p) =>
     p.nome.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleDelete = (id: string) => {
-    deleteProduto(id)
-    setProdutos(getProdutos())
-    toast.success('Produto removido com sucesso')
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteProduto(id)
+      await loadData()
+      toast.success('Produto removido com sucesso')
+    } catch (error) {
+      console.error('Erro ao remover produto:', error)
+      toast.error('Erro ao remover produto')
+    }
   }
 
-  const handleEstoque = () => {
+  const handleEstoque = async () => {
     if (!estoqueDialog.produto || !quantidade) return
 
     const qtd = parseInt(quantidade)
@@ -85,24 +108,29 @@ export default function ProdutosPage() {
       return
     }
 
-    updateProduto(produto.id, { estoque: novoEstoque })
-    addMovimentacao({
-      produtoId: produto.id,
-      produtoNome: produto.nome,
-      tipo: estoqueDialog.tipo,
-      quantidade: qtd,
-      motivo: motivo || (estoqueDialog.tipo === 'entrada' ? 'Entrada manual' : 'Saida manual'),
-    })
+    try {
+      await updateProduto(produto.id, { estoque: novoEstoque })
+      await addMovimentacao({
+        produtoId: produto.id,
+        produtoNome: produto.nome,
+        tipo: estoqueDialog.tipo,
+        quantidade: qtd,
+        motivo: motivo || (estoqueDialog.tipo === 'entrada' ? 'Entrada manual' : 'Saida manual'),
+      })
 
-    setProdutos(getProdutos())
-    setEstoqueDialog({ open: false, produto: null, tipo: 'entrada' })
-    setQuantidade('')
-    setMotivo('')
-    toast.success(
-      estoqueDialog.tipo === 'entrada'
-        ? 'Entrada registrada com sucesso'
-        : 'Saida registrada com sucesso'
-    )
+      await loadData()
+      setEstoqueDialog({ open: false, produto: null, tipo: 'entrada' })
+      setQuantidade('')
+      setMotivo('')
+      toast.success(
+        estoqueDialog.tipo === 'entrada'
+          ? 'Entrada registrada com sucesso'
+          : 'Saida registrada com sucesso'
+      )
+    } catch (error) {
+      console.error('Erro ao atualizar estoque:', error)
+      toast.error('Erro ao atualizar estoque')
+    }
   }
 
   if (loading) {
@@ -125,12 +153,23 @@ export default function ProdutosPage() {
               {produtos.length} produto(s) cadastrado(s)
             </p>
           </div>
-          <Link href="/produtos/novo">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Produto
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sincronizar dados"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
-          </Link>
+            <Link href="/produtos/novo">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Produto
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mb-4 relative">

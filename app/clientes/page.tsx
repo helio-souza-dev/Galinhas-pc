@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getClientes, deleteCliente, getGoogleMapsLink } from '@/lib/storage'
 import { Cliente } from '@/lib/types'
-import { Plus, Search, MapPin, Phone, Trash2, Pencil } from 'lucide-react'
+import { Plus, Search, MapPin, Phone, Trash2, Pencil, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -26,11 +26,29 @@ export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const loadData = useCallback(async () => {
+    try {
+      const data = await getClientes()
+      setClientes(data)
+    } catch (error) {
+      console.error('Erro ao carregar clientes:', error)
+      toast.error('Erro ao carregar clientes')
+    } finally {
+      setLoading(false)
+      setSyncing(false)
+    }
+  }, [])
 
   useEffect(() => {
-    setClientes(getClientes())
-    setLoading(false)
-  }, [])
+    loadData()
+  }, [loadData])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await loadData()
+  }
 
   const clientesFiltrados = clientes.filter(
     (c) =>
@@ -39,10 +57,15 @@ export default function ClientesPage() {
       c.bairro.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleDelete = (id: string) => {
-    deleteCliente(id)
-    setClientes(getClientes())
-    toast.success('Cliente removido com sucesso')
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCliente(id)
+      await loadData()
+      toast.success('Cliente removido com sucesso')
+    } catch (error) {
+      console.error('Erro ao remover cliente:', error)
+      toast.error('Erro ao remover cliente')
+    }
   }
 
   if (loading) {
@@ -65,12 +88,23 @@ export default function ClientesPage() {
               {clientes.length} cliente(s) cadastrado(s)
             </p>
           </div>
-          <Link href="/clientes/novo">
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Novo Cliente
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSync}
+              disabled={syncing}
+              title="Sincronizar dados"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             </Button>
-          </Link>
+            <Link href="/clientes/novo">
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Novo Cliente
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mb-4 relative">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,9 +15,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  getVendas,
-  getClientes,
-  getPagamentos,
+  getVendaById,
+  getClienteById,
+  getPagamentosByVendaId,
   addPagamento,
   formatCurrency,
   formatDateTime,
@@ -49,27 +49,33 @@ export default function VendaDetalhesPage() {
     'pix'
   )
 
-  const loadData = () => {
-    const vendas = getVendas()
-    const found = vendas.find((v) => v.id === params.id)
-    if (found) {
-      setVenda(found)
-      const clientes = getClientes()
-      const clienteFound = clientes.find((c) => c.id === found.clienteId)
-      setCliente(clienteFound || null)
-
-      const allPagamentos = getPagamentos()
-      const vendaPagamentos = allPagamentos.filter((p) => p.vendaId === found.id)
-      setPagamentos(vendaPagamentos)
+  const loadData = useCallback(async () => {
+    try {
+      const found = await getVendaById(params.id as string)
+      if (found) {
+        setVenda(found)
+        
+        const [clienteData, pagamentosData] = await Promise.all([
+          found.clienteId ? getClienteById(found.clienteId) : null,
+          getPagamentosByVendaId(found.id),
+        ])
+        
+        setCliente(clienteData)
+        setPagamentos(pagamentosData)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar venda:', error)
+      toast.error('Erro ao carregar venda')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
-  }
+  }, [params.id])
 
   useEffect(() => {
     loadData()
-  }, [params.id])
+  }, [loadData])
 
-  const handlePagamento = () => {
+  const handlePagamento = async () => {
     if (!venda || !valorPagamento) return
 
     const valor = parseFloat(valorPagamento.replace(',', '.'))
@@ -84,16 +90,21 @@ export default function VendaDetalhesPage() {
       return
     }
 
-    addPagamento({
-      vendaId: venda.id,
-      valor,
-      formaPagamento,
-    })
+    try {
+      await addPagamento({
+        vendaId: venda.id,
+        valor,
+        formaPagamento,
+      })
 
-    loadData()
-    setDialogOpen(false)
-    setValorPagamento('')
-    toast.success('Pagamento registrado!')
+      await loadData()
+      setDialogOpen(false)
+      setValorPagamento('')
+      toast.success('Pagamento registrado!')
+    } catch (error) {
+      console.error('Erro ao registrar pagamento:', error)
+      toast.error('Erro ao registrar pagamento')
+    }
   }
 
   if (loading) {

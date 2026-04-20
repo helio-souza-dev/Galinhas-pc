@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppSidebar } from '@/components/app-sidebar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,7 @@ import { toast } from 'sonner'
 export default function NovaVendaPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [clienteId, setClienteId] = useState('')
@@ -39,10 +40,25 @@ export default function NovaVendaPage() {
   >('pix')
   const [observacoes, setObservacoes] = useState('')
 
-  useEffect(() => {
-    setClientes(getClientes())
-    setProdutos(getProdutos())
+  const loadData = useCallback(async () => {
+    try {
+      const [clientesData, produtosData] = await Promise.all([
+        getClientes(),
+        getProdutos(),
+      ])
+      setClientes(clientesData)
+      setProdutos(produtosData)
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error)
+      toast.error('Erro ao carregar dados')
+    } finally {
+      setLoadingData(false)
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const adicionarProduto = (produtoId: string) => {
     const produto = produtos.find((p) => p.id === produtoId)
@@ -121,7 +137,7 @@ export default function NovaVendaPage() {
   const freteValor = parseFloat(frete.replace(',', '.')) || 0
   const total = subtotal + freteValor
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -147,24 +163,40 @@ export default function NovaVendaPage() {
     const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
     const valorPago = formaPagamento === 'fiado' ? 0 : total
 
-    addVenda({
-      clienteId,
-      clienteNome: cliente.nome,
-      itens,
-      subtotal,
-      frete: freteValor,
-      total,
-      formaPagamento,
-      status,
-      valorPago,
-      observacoes,
-    })
+    try {
+      await addVenda({
+        clienteId,
+        clienteNome: cliente.nome,
+        itens,
+        subtotal,
+        frete: freteValor,
+        total,
+        formaPagamento,
+        status,
+        valorPago,
+        observacoes,
+      })
 
-    toast.success('Venda registrada com sucesso!')
-    router.push('/vendas')
+      toast.success('Venda registrada com sucesso!')
+      router.push('/vendas')
+    } catch (error) {
+      console.error('Erro ao registrar venda:', error)
+      toast.error('Erro ao registrar venda')
+      setLoading(false)
+    }
   }
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId)
+
+  if (loadingData) {
+    return (
+      <AppSidebar>
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppSidebar>
+    )
+  }
 
   return (
     <AppSidebar>
@@ -267,7 +299,7 @@ export default function NovaVendaPage() {
                         >
                           <span className="font-medium">{produto.nome}</span>
                           <span className="text-xs text-muted-foreground">
-                            {formatCurrency(produto.preco)} • Est: {produto.estoque}
+                            {formatCurrency(produto.preco)} - Est: {produto.estoque}
                           </span>
                         </Button>
                       ))}

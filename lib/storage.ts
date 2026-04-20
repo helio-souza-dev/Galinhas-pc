@@ -1,214 +1,551 @@
-import { Cliente, Produto, Venda, Pagamento, MovimentacaoEstoque } from './types'
+import { createClient } from '@/lib/supabase/client'
+import { Cliente, Produto, Venda, ItemVenda, Pagamento, MovimentacaoEstoque } from './types'
 
-const STORAGE_KEYS = {
-  clientes: 'granja_clientes',
-  produtos: 'granja_produtos',
-  vendas: 'granja_vendas',
-  pagamentos: 'granja_pagamentos',
-  movimentacoes: 'granja_movimentacoes',
+// Supabase client (browser)
+function getSupabase() {
+  return createClient()
 }
 
-function getItem<T>(key: string): T[] {
-  if (typeof window === 'undefined') return []
-  const data = localStorage.getItem(key)
-  return data ? JSON.parse(data) : []
-}
+// ==================== CLIENTES ====================
 
-function setItem<T>(key: string, data: T[]): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(key, JSON.stringify(data))
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2)
-}
-
-// Clientes
-export function getClientes(): Cliente[] {
-  return getItem<Cliente>(STORAGE_KEYS.clientes)
-}
-
-export function addCliente(cliente: Omit<Cliente, 'id' | 'createdAt'>): Cliente {
-  const clientes = getClientes()
-  const novoCliente: Cliente = {
-    ...cliente,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  }
-  clientes.push(novoCliente)
-  setItem(STORAGE_KEYS.clientes, clientes)
-  return novoCliente
-}
-
-export function updateCliente(id: string, data: Partial<Cliente>): Cliente | null {
-  const clientes = getClientes()
-  const index = clientes.findIndex(c => c.id === id)
-  if (index === -1) return null
-  clientes[index] = { ...clientes[index], ...data }
-  setItem(STORAGE_KEYS.clientes, clientes)
-  return clientes[index]
-}
-
-export function deleteCliente(id: string): boolean {
-  const clientes = getClientes()
-  const filtered = clientes.filter(c => c.id !== id)
-  if (filtered.length === clientes.length) return false
-  setItem(STORAGE_KEYS.clientes, filtered)
-  return true
-}
-
-// Produtos
-export function getProdutos(): Produto[] {
-  return getItem<Produto>(STORAGE_KEYS.produtos)
-}
-
-export function addProduto(produto: Omit<Produto, 'id' | 'createdAt'>): Produto {
-  const produtos = getProdutos()
-  const novoProduto: Produto = {
-    ...produto,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  }
-  produtos.push(novoProduto)
-  setItem(STORAGE_KEYS.produtos, produtos)
-  return novoProduto
-}
-
-export function updateProduto(id: string, data: Partial<Produto>): Produto | null {
-  const produtos = getProdutos()
-  const index = produtos.findIndex(p => p.id === id)
-  if (index === -1) return null
-  produtos[index] = { ...produtos[index], ...data }
-  setItem(STORAGE_KEYS.produtos, produtos)
-  return produtos[index]
-}
-
-export function deleteProduto(id: string): boolean {
-  const produtos = getProdutos()
-  const filtered = produtos.filter(p => p.id !== id)
-  if (filtered.length === produtos.length) return false
-  setItem(STORAGE_KEYS.produtos, filtered)
-  return true
-}
-
-// Vendas
-export function getVendas(): Venda[] {
-  return getItem<Venda>(STORAGE_KEYS.vendas)
-}
-
-export function addVenda(venda: Omit<Venda, 'id' | 'createdAt'>): Venda {
-  const vendas = getVendas()
-  const novaVenda: Venda = {
-    ...venda,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  }
-  vendas.push(novaVenda)
-  setItem(STORAGE_KEYS.vendas, vendas)
+export async function getClientes(): Promise<Cliente[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('*')
+    .order('created_at', { ascending: false })
   
-  // Atualizar estoque
-  venda.itens.forEach(item => {
-    const produtos = getProdutos()
-    const produto = produtos.find(p => p.id === item.produtoId)
-    if (produto) {
-      updateProduto(produto.id, { estoque: produto.estoque - item.quantidade })
-      addMovimentacao({
-        produtoId: produto.id,
-        produtoNome: produto.nome,
-        tipo: 'saida',
-        quantidade: item.quantidade,
-        motivo: `Venda #${novaVenda.id.slice(-6)}`,
-      })
+  if (error) {
+    console.error('Erro ao buscar clientes:', error)
+    return []
+  }
+  
+  return data.map(mapClienteFromDB)
+}
+
+export async function getClienteById(id: string): Promise<Cliente | null> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('*')
+    .eq('id', id)
+    .single()
+  
+  if (error) return null
+  return mapClienteFromDB(data)
+}
+
+export async function addCliente(cliente: Omit<Cliente, 'id' | 'createdAt'>): Promise<Cliente> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('clientes')
+    .insert({
+      nome: cliente.nome,
+      telefone: cliente.telefone || null,
+      endereco: cliente.endereco || null,
+      cidade: cliente.cidade || null,
+      bairro: cliente.bairro || null,
+      referencia: cliente.referencia || null,
+      observacoes: cliente.observacoes || null,
+    })
+    .select()
+    .single()
+  
+  if (error) throw new Error(`Erro ao adicionar cliente: ${error.message}`)
+  return mapClienteFromDB(data)
+}
+
+export async function updateCliente(id: string, updates: Partial<Cliente>): Promise<Cliente | null> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('clientes')
+    .update({
+      nome: updates.nome,
+      telefone: updates.telefone,
+      endereco: updates.endereco,
+      cidade: updates.cidade,
+      bairro: updates.bairro,
+      referencia: updates.referencia,
+      observacoes: updates.observacoes,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) return null
+  return mapClienteFromDB(data)
+}
+
+export async function deleteCliente(id: string): Promise<boolean> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('clientes')
+    .delete()
+    .eq('id', id)
+  
+  return !error
+}
+
+// ==================== PRODUTOS ====================
+
+export async function getProdutos(): Promise<Produto[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('produtos')
+    .select('*')
+    .order('nome')
+  
+  if (error) {
+    console.error('Erro ao buscar produtos:', error)
+    return []
+  }
+  
+  return data.map(mapProdutoFromDB)
+}
+
+export async function getProdutoById(id: string): Promise<Produto | null> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('produtos')
+    .select('*')
+    .eq('id', id)
+    .single()
+  
+  if (error) return null
+  return mapProdutoFromDB(data)
+}
+
+export async function addProduto(produto: Omit<Produto, 'id' | 'createdAt'>): Promise<Produto> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('produtos')
+    .insert({
+      nome: produto.nome,
+      tipo: produto.tipo,
+      unidade: produto.unidade,
+      quantidade: produto.quantidade,
+      preco: produto.preco,
+      estoque: produto.estoque,
+    })
+    .select()
+    .single()
+  
+  if (error) throw new Error(`Erro ao adicionar produto: ${error.message}`)
+  return mapProdutoFromDB(data)
+}
+
+export async function updateProduto(id: string, updates: Partial<Produto>): Promise<Produto | null> {
+  const supabase = getSupabase()
+  
+  const updateData: Record<string, unknown> = {}
+  if (updates.nome !== undefined) updateData.nome = updates.nome
+  if (updates.tipo !== undefined) updateData.tipo = updates.tipo
+  if (updates.unidade !== undefined) updateData.unidade = updates.unidade
+  if (updates.quantidade !== undefined) updateData.quantidade = updates.quantidade
+  if (updates.preco !== undefined) updateData.preco = updates.preco
+  if (updates.estoque !== undefined) updateData.estoque = updates.estoque
+  
+  const { data, error } = await supabase
+    .from('produtos')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) return null
+  return mapProdutoFromDB(data)
+}
+
+export async function deleteProduto(id: string): Promise<boolean> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('produtos')
+    .delete()
+    .eq('id', id)
+  
+  return !error
+}
+
+// ==================== VENDAS ====================
+
+export async function getVendas(): Promise<Venda[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('vendas')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
+  if (error) {
+    console.error('Erro ao buscar vendas:', error)
+    return []
+  }
+  
+  // Buscar itens de cada venda
+  const vendas = await Promise.all(
+    data.map(async (venda) => {
+      const { data: itens } = await supabase
+        .from('itens_venda')
+        .select('*')
+        .eq('venda_id', venda.id)
+      
+      return mapVendaFromDB(venda, itens || [])
+    })
+  )
+  
+  return vendas
+}
+
+export async function getVendaById(id: string): Promise<Venda | null> {
+  const supabase = getSupabase()
+  const { data: venda, error } = await supabase
+    .from('vendas')
+    .select('*')
+    .eq('id', id)
+    .single()
+  
+  if (error) return null
+  
+  const { data: itens } = await supabase
+    .from('itens_venda')
+    .select('*')
+    .eq('venda_id', id)
+  
+  return mapVendaFromDB(venda, itens || [])
+}
+
+export async function getVendasByClienteId(clienteId: string): Promise<Venda[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('vendas')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false })
+  
+  if (error) return []
+  
+  const vendas = await Promise.all(
+    data.map(async (venda) => {
+      const { data: itens } = await supabase
+        .from('itens_venda')
+        .select('*')
+        .eq('venda_id', venda.id)
+      
+      return mapVendaFromDB(venda, itens || [])
+    })
+  )
+  
+  return vendas
+}
+
+export async function addVenda(venda: Omit<Venda, 'id' | 'createdAt'>): Promise<Venda> {
+  const supabase = getSupabase()
+  
+  // Criar a venda
+  const { data: vendaData, error: vendaError } = await supabase
+    .from('vendas')
+    .insert({
+      cliente_id: venda.clienteId || null,
+      cliente_nome: venda.clienteNome,
+      subtotal: venda.subtotal,
+      frete: venda.frete,
+      total: venda.total,
+      forma_pagamento: venda.formaPagamento,
+      status: venda.status,
+      valor_pago: venda.valorPago,
+      observacoes: venda.observacoes || null,
+    })
+    .select()
+    .single()
+  
+  if (vendaError) throw new Error(`Erro ao adicionar venda: ${vendaError.message}`)
+  
+  // Criar itens da venda
+  const itensToInsert = venda.itens.map(item => ({
+    venda_id: vendaData.id,
+    produto_id: item.produtoId || null,
+    produto_nome: item.produtoNome,
+    quantidade: item.quantidade,
+    preco_unitario: item.precoUnitario,
+    subtotal: item.subtotal,
+  }))
+  
+  const { data: itensData, error: itensError } = await supabase
+    .from('itens_venda')
+    .insert(itensToInsert)
+    .select()
+  
+  if (itensError) {
+    console.error('Erro ao adicionar itens:', itensError)
+  }
+  
+  // Atualizar estoque e criar movimentacoes
+  for (const item of venda.itens) {
+    if (item.produtoId) {
+      // Buscar produto atual
+      const { data: produto } = await supabase
+        .from('produtos')
+        .select('estoque')
+        .eq('id', item.produtoId)
+        .single()
+      
+      if (produto) {
+        // Atualizar estoque
+        await supabase
+          .from('produtos')
+          .update({ estoque: produto.estoque - item.quantidade })
+          .eq('id', item.produtoId)
+        
+        // Criar movimentacao
+        await supabase
+          .from('movimentacoes_estoque')
+          .insert({
+            produto_id: item.produtoId,
+            produto_nome: item.produtoNome,
+            tipo: 'saida',
+            quantidade: item.quantidade,
+            motivo: `Venda #${vendaData.id.slice(-6)}`,
+          })
+      }
     }
-  })
-  
-  return novaVenda
-}
-
-export function updateVenda(id: string, data: Partial<Venda>): Venda | null {
-  const vendas = getVendas()
-  const index = vendas.findIndex(v => v.id === id)
-  if (index === -1) return null
-  vendas[index] = { ...vendas[index], ...data }
-  setItem(STORAGE_KEYS.vendas, vendas)
-  return vendas[index]
-}
-
-export function deleteVenda(id: string): boolean {
-  const vendas = getVendas()
-  const filtered = vendas.filter(v => v.id !== id)
-  if (filtered.length === vendas.length) return false
-  setItem(STORAGE_KEYS.vendas, filtered)
-  return true
-}
-
-// Pagamentos
-export function getPagamentos(): Pagamento[] {
-  return getItem<Pagamento>(STORAGE_KEYS.pagamentos)
-}
-
-export function addPagamento(pagamento: Omit<Pagamento, 'id' | 'createdAt'>): Pagamento {
-  const pagamentos = getPagamentos()
-  const novoPagamento: Pagamento = {
-    ...pagamento,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
   }
-  pagamentos.push(novoPagamento)
-  setItem(STORAGE_KEYS.pagamentos, pagamentos)
+  
+  return mapVendaFromDB(vendaData, itensData || [])
+}
+
+export async function updateVenda(id: string, updates: Partial<Venda>): Promise<Venda | null> {
+  const supabase = getSupabase()
+  
+  const updateData: Record<string, unknown> = {}
+  if (updates.status !== undefined) updateData.status = updates.status
+  if (updates.valorPago !== undefined) updateData.valor_pago = updates.valorPago
+  if (updates.observacoes !== undefined) updateData.observacoes = updates.observacoes
+  
+  const { data, error } = await supabase
+    .from('vendas')
+    .update(updateData)
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) return null
+  
+  const { data: itens } = await supabase
+    .from('itens_venda')
+    .select('*')
+    .eq('venda_id', id)
+  
+  return mapVendaFromDB(data, itens || [])
+}
+
+export async function deleteVenda(id: string): Promise<boolean> {
+  const supabase = getSupabase()
+  const { error } = await supabase
+    .from('vendas')
+    .delete()
+    .eq('id', id)
+  
+  return !error
+}
+
+// ==================== PAGAMENTOS ====================
+
+export async function getPagamentos(): Promise<Pagamento[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('pagamentos')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
+  if (error) return []
+  return data.map(mapPagamentoFromDB)
+}
+
+export async function getPagamentosByVendaId(vendaId: string): Promise<Pagamento[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('pagamentos')
+    .select('*')
+    .eq('venda_id', vendaId)
+    .order('created_at', { ascending: false })
+  
+  if (error) return []
+  return data.map(mapPagamentoFromDB)
+}
+
+export async function addPagamento(pagamento: Omit<Pagamento, 'id' | 'createdAt'>): Promise<Pagamento> {
+  const supabase = getSupabase()
+  
+  // Inserir pagamento
+  const { data, error } = await supabase
+    .from('pagamentos')
+    .insert({
+      venda_id: pagamento.vendaId,
+      valor: pagamento.valor,
+      forma_pagamento: pagamento.formaPagamento,
+    })
+    .select()
+    .single()
+  
+  if (error) throw new Error(`Erro ao adicionar pagamento: ${error.message}`)
   
   // Atualizar valor pago da venda
-  const vendas = getVendas()
-  const venda = vendas.find(v => v.id === pagamento.vendaId)
+  const { data: venda } = await supabase
+    .from('vendas')
+    .select('valor_pago, total')
+    .eq('id', pagamento.vendaId)
+    .single()
+  
   if (venda) {
-    const novoValorPago = venda.valorPago + pagamento.valor
-    let novoStatus: Venda['status'] = 'parcial'
-    if (novoValorPago >= venda.total) {
+    const novoValorPago = Number(venda.valor_pago) + pagamento.valor
+    let novoStatus: 'pendente' | 'parcial' | 'pago' = 'parcial'
+    if (novoValorPago >= Number(venda.total)) {
       novoStatus = 'pago'
     } else if (novoValorPago === 0) {
       novoStatus = 'pendente'
     }
-    updateVenda(venda.id, { valorPago: novoValorPago, status: novoStatus })
+    
+    await supabase
+      .from('vendas')
+      .update({ valor_pago: novoValorPago, status: novoStatus })
+      .eq('id', pagamento.vendaId)
   }
   
-  return novoPagamento
+  return mapPagamentoFromDB(data)
 }
 
-// Movimentacoes de Estoque
-export function getMovimentacoes(): MovimentacaoEstoque[] {
-  return getItem<MovimentacaoEstoque>(STORAGE_KEYS.movimentacoes)
+// ==================== MOVIMENTACOES ====================
+
+export async function getMovimentacoes(): Promise<MovimentacaoEstoque[]> {
+  const supabase = getSupabase()
+  const { data, error } = await supabase
+    .from('movimentacoes_estoque')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
+  if (error) return []
+  return data.map(mapMovimentacaoFromDB)
 }
 
-export function addMovimentacao(movimentacao: Omit<MovimentacaoEstoque, 'id' | 'createdAt'>): MovimentacaoEstoque {
-  const movimentacoes = getMovimentacoes()
-  const novaMovimentacao: MovimentacaoEstoque = {
-    ...movimentacao,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
+export async function addMovimentacao(movimentacao: Omit<MovimentacaoEstoque, 'id' | 'createdAt'>): Promise<MovimentacaoEstoque> {
+  const supabase = getSupabase()
+  
+  const { data, error } = await supabase
+    .from('movimentacoes_estoque')
+    .insert({
+      produto_id: movimentacao.produtoId || null,
+      produto_nome: movimentacao.produtoNome,
+      tipo: movimentacao.tipo,
+      quantidade: movimentacao.quantidade,
+      motivo: movimentacao.motivo || null,
+    })
+    .select()
+    .single()
+  
+  if (error) throw new Error(`Erro ao adicionar movimentacao: ${error.message}`)
+  
+  // Atualizar estoque do produto
+  if (movimentacao.produtoId) {
+    const { data: produto } = await supabase
+      .from('produtos')
+      .select('estoque')
+      .eq('id', movimentacao.produtoId)
+      .single()
+    
+    if (produto) {
+      const novoEstoque = movimentacao.tipo === 'entrada'
+        ? produto.estoque + movimentacao.quantidade
+        : produto.estoque - movimentacao.quantidade
+      
+      await supabase
+        .from('produtos')
+        .update({ estoque: novoEstoque })
+        .eq('id', movimentacao.produtoId)
+    }
   }
-  movimentacoes.push(novaMovimentacao)
-  setItem(STORAGE_KEYS.movimentacoes, movimentacoes)
-  return novaMovimentacao
+  
+  return mapMovimentacaoFromDB(data)
 }
 
-// Seed dados iniciais
-export function seedInitialData(): void {
-  if (typeof window === 'undefined') return
-  
-  // Verificar se ja tem dados
-  if (getProdutos().length > 0) return
-  
-  // Produtos iniciais
-  const produtosIniciais: Omit<Produto, 'id' | 'createdAt'>[] = [
-    { nome: 'Ovos - Duzia', tipo: 'ovos', unidade: 'duzia', quantidade: 12, preco: 12, estoque: 50 },
-    { nome: 'Ovos - Cartela (30)', tipo: 'ovos', unidade: 'cartela', quantidade: 30, preco: 28, estoque: 20 },
-    { nome: 'Galinha Caipira', tipo: 'galinha', unidade: 'unidade', quantidade: 1, preco: 45, estoque: 15 },
-  ]
-  
-  produtosIniciais.forEach(p => addProduto(p))
+// ==================== MAPEADORES ====================
+
+function mapClienteFromDB(data: Record<string, unknown>): Cliente {
+  return {
+    id: data.id as string,
+    nome: data.nome as string,
+    telefone: (data.telefone as string) || '',
+    endereco: (data.endereco as string) || '',
+    cidade: (data.cidade as string) || '',
+    bairro: (data.bairro as string) || '',
+    referencia: (data.referencia as string) || undefined,
+    observacoes: (data.observacoes as string) || undefined,
+    createdAt: data.created_at as string,
+  }
 }
 
-// Utilitarios
+function mapProdutoFromDB(data: Record<string, unknown>): Produto {
+  return {
+    id: data.id as string,
+    nome: data.nome as string,
+    tipo: data.tipo as 'ovos' | 'galinha',
+    unidade: data.unidade as 'duzia' | 'cartela' | 'unidade',
+    quantidade: Number(data.quantidade),
+    preco: Number(data.preco),
+    estoque: Number(data.estoque),
+    createdAt: data.created_at as string,
+  }
+}
+
+function mapVendaFromDB(venda: Record<string, unknown>, itens: Record<string, unknown>[]): Venda {
+  return {
+    id: venda.id as string,
+    clienteId: (venda.cliente_id as string) || '',
+    clienteNome: venda.cliente_nome as string,
+    itens: itens.map(mapItemVendaFromDB),
+    subtotal: Number(venda.subtotal),
+    frete: Number(venda.frete),
+    total: Number(venda.total),
+    formaPagamento: venda.forma_pagamento as 'dinheiro' | 'pix' | 'cartao' | 'fiado',
+    status: venda.status as 'pendente' | 'pago' | 'parcial',
+    valorPago: Number(venda.valor_pago),
+    observacoes: (venda.observacoes as string) || undefined,
+    createdAt: venda.created_at as string,
+  }
+}
+
+function mapItemVendaFromDB(data: Record<string, unknown>): ItemVenda {
+  return {
+    produtoId: (data.produto_id as string) || '',
+    produtoNome: data.produto_nome as string,
+    quantidade: Number(data.quantidade),
+    precoUnitario: Number(data.preco_unitario),
+    subtotal: Number(data.subtotal),
+  }
+}
+
+function mapPagamentoFromDB(data: Record<string, unknown>): Pagamento {
+  return {
+    id: data.id as string,
+    vendaId: data.venda_id as string,
+    valor: Number(data.valor),
+    formaPagamento: data.forma_pagamento as 'dinheiro' | 'pix' | 'cartao',
+    createdAt: data.created_at as string,
+  }
+}
+
+function mapMovimentacaoFromDB(data: Record<string, unknown>): MovimentacaoEstoque {
+  return {
+    id: data.id as string,
+    produtoId: (data.produto_id as string) || '',
+    produtoNome: data.produto_nome as string,
+    tipo: data.tipo as 'entrada' | 'saida',
+    quantidade: Number(data.quantidade),
+    motivo: (data.motivo as string) || '',
+    createdAt: data.created_at as string,
+  }
+}
+
+// ==================== UTILITARIOS ====================
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',

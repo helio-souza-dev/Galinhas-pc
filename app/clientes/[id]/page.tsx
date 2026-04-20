@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { getClientes, updateCliente } from '@/lib/storage'
+import { getClienteById, updateCliente } from '@/lib/storage'
 import { Cliente } from '@/lib/types'
 import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
@@ -18,6 +18,7 @@ export default function EditarClientePage() {
   const router = useRouter()
   const params = useParams()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(true)
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [form, setForm] = useState({
     nome: '',
@@ -30,23 +31,32 @@ export default function EditarClientePage() {
   })
 
   useEffect(() => {
-    const clientes = getClientes()
-    const found = clientes.find((c) => c.id === params.id)
-    if (found) {
-      setCliente(found)
-      setForm({
-        nome: found.nome,
-        telefone: found.telefone,
-        endereco: found.endereco,
-        cidade: found.cidade,
-        bairro: found.bairro,
-        referencia: found.referencia || '',
-        observacoes: found.observacoes || '',
-      })
+    const loadCliente = async () => {
+      try {
+        const found = await getClienteById(params.id as string)
+        if (found) {
+          setCliente(found)
+          setForm({
+            nome: found.nome,
+            telefone: found.telefone,
+            endereco: found.endereco,
+            cidade: found.cidade,
+            bairro: found.bairro,
+            referencia: found.referencia || '',
+            observacoes: found.observacoes || '',
+          })
+        }
+      } catch (error) {
+        console.error('Erro ao carregar cliente:', error)
+        toast.error('Erro ao carregar cliente')
+      } finally {
+        setLoadingData(false)
+      }
     }
+    loadCliente()
   }, [params.id])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -56,9 +66,25 @@ export default function EditarClientePage() {
       return
     }
 
-    updateCliente(params.id as string, form)
-    toast.success('Cliente atualizado com sucesso!')
-    router.push('/clientes')
+    try {
+      await updateCliente(params.id as string, form)
+      toast.success('Cliente atualizado com sucesso!')
+      router.push('/clientes')
+    } catch (error) {
+      console.error('Erro ao atualizar cliente:', error)
+      toast.error('Erro ao atualizar cliente')
+      setLoading(false)
+    }
+  }
+
+  if (loadingData) {
+    return (
+      <AppSidebar>
+        <div className="flex h-screen items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        </div>
+      </AppSidebar>
+    )
   }
 
   if (!cliente) {
