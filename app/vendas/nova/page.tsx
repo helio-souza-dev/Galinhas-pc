@@ -36,6 +36,9 @@ export default function NovaVendaPage() {
   const [itens, setItens] = useState<ItemVenda[]>([])
   const [frete, setFrete] = useState('')
   const [formaPagamento, setFormaPagamento] = useState<'dinheiro' | 'pix' | 'cartao' | 'fiado'>('pix')
+
+  // Novo estado para status manual
+  const [statusPagamentoManual, setStatusPagamentoManual] = useState<'pago' | 'pendente'>('pago')
   const [observacoes, setObservacoes] = useState('')
   
   // Novos estados para a logística
@@ -169,28 +172,28 @@ export default function NovaVendaPage() {
       return
     }
 
-    const status = formaPagamento === 'fiado' ? 'pendente' : 'pago'
-    const valorPago = formaPagamento === 'fiado' ? 0 : total
+    const status = statusPagamentoManual
+    const valorPago = statusPagamentoManual === 'pago' ? total : 0
 
     const statusEntrega = tipoVenda === 'retirada' ? 'entregue' : 'pendente'
     const dataFinal = tipoVenda === 'entrega' ? dataEntrega : new Date().toISOString().split('T')[0]
 
     try {
       await addVenda({
-        clienteId,
-        clienteNome: cliente.nome,
-        itens,
-        subtotal,
-        frete: freteValor,
-        total,
-        formaPagamento,
-        status,
-        valorPago,
-        observacoes,
-        tipoVenda,
-        dataEntrega: dataFinal,
-        statusEntrega,
-      })
+      clienteId,
+      clienteNome: cliente.nome,
+      itens,
+      subtotal,
+      frete: freteValor,
+      total,
+      formaPagamento,
+      status, // Usando o valor do dropdown manual
+      valorPago, // 0 se pendente, total se pago
+      observacoes,
+      tipoVenda,
+      dataEntrega: dataFinal,
+      statusEntrega,
+    })
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Novo Pedido 🥚', {
@@ -467,6 +470,16 @@ export default function NovaVendaPage() {
                       </Select>
                     </div>
                   </div>
+
+                  {/* NOVO: Campo Status do Pagamento */}
+  <div className="space-y-2">
+    <Label>Status do Pagamento</Label>
+    <Select
+      value={statusPagamentoManual}
+      onValueChange={(v: 'pago' | 'pendente') => setStatusPagamentoManual(v)}
+    ></Select>
+
+                  
 
                   <div className="space-y-2">
                     <Label htmlFor="observacoes">Observações</Label>
