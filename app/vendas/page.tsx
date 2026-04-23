@@ -256,7 +256,7 @@ export default function VendasPage() {
                         {venda.tipoVenda === 'entrega' && venda.dataEntrega && (
                           <p className="text-xs text-muted-foreground mt-1">
                             📦 Entrega:{' '}
-                            {new Date(venda.dataEntrega + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            {(() => { const p = venda.dataEntrega.split('T')[0].split('-').map(Number); return new Date(p[0], p[1]-1, p[2]).toLocaleDateString('pt-BR') })()}
                             {venda.statusEntrega && (
                               <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${
                                 venda.statusEntrega === 'entregue'
