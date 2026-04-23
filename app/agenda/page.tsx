@@ -31,14 +31,23 @@ export default function AgendaPage() {
   // Filtra as vendas corrigindo o fuso horário/timestamp
   const entregasDoDia = vendas.filter((venda) => {
     if (!venda.dataEntrega || !date) return false
-    
-    // Separa "2026-04-20" caso venha como "2026-04-20T00:00:00Z"
+    if (venda.tipoVenda === 'retirada') return false
+
+    // data_entrega vem como "2026-04-20T00:00:00+00:00" do Supabase (timestamp)
+    // Pega só a parte da data antes do T
     const dataVendaLimpa = venda.dataEntrega.split('T')[0]
     const dataSelecionada = format(date, 'yyyy-MM-dd')
 
-    // Só mostra se as datas baterem E a venda NÃO for do tipo retirada
-    return dataVendaLimpa === dataSelecionada && venda.tipoVenda !== 'retirada'
+    return dataVendaLimpa === dataSelecionada
   })
+
+  // Dias que têm entrega (para marcar no calendário)
+  const diasComEntrega = vendas
+    .filter(v => v.dataEntrega && v.tipoVenda !== 'retirada')
+    .map(v => {
+      const partes = v.dataEntrega!.split('T')[0].split('-')
+      return new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]))
+    })
 
   if (loading) {
     return (
@@ -65,6 +74,14 @@ export default function AgendaPage() {
                 onSelect={setDate}
                 locale={ptBR}
                 className="rounded-md border shadow-sm"
+                modifiers={{ hasEntrega: diasComEntrega }}
+                modifiersStyles={{
+                  hasEntrega: {
+                    fontWeight: 'bold',
+                    textDecoration: 'underline',
+                    color: 'hsl(var(--primary))',
+                  }
+                }}
               />
             </CardContent>
           </Card>
@@ -96,11 +113,22 @@ export default function AgendaPage() {
                     <p className="text-sm text-muted-foreground mb-1">
                       <strong>Itens:</strong> {entrega.itens.map(i => `${i.quantidade}x ${i.produtoNome}`).join(', ')}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         entrega.status === 'pago' ? 'bg-primary/20 text-primary' : 'bg-destructive/20 text-destructive'
                       }`}>
                         Pagamento: {entrega.status}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        entrega.statusEntrega === 'entregue' ? 'bg-primary/20 text-primary'
+                          : entrega.statusEntrega === 'em_rota' ? 'bg-purple-500/20 text-purple-600'
+                          : entrega.statusEntrega === 'preparando' ? 'bg-orange-500/20 text-orange-600'
+                          : 'bg-blue-500/20 text-blue-600'
+                      }`}>
+                        {entrega.statusEntrega === 'entregue' ? '✅ Entregue'
+                          : entrega.statusEntrega === 'em_rota' ? '🚚 Em rota'
+                          : entrega.statusEntrega === 'preparando' ? '📦 Separando'
+                          : '🕐 Aguardando'}
                       </span>
                       {entrega.observacoes && (
                          <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">

@@ -253,6 +253,33 @@ export default function VendasPage() {
                         <p className="text-sm text-muted-foreground mt-1">
                           {venda.itens.length} item(s) - {venda.formaPagamento}
                         </p>
+                        {venda.tipoVenda === 'entrega' && venda.dataEntrega && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            📦 Entrega:{' '}
+                            {new Date(venda.dataEntrega + 'T12:00:00').toLocaleDateString('pt-BR')}
+                            {venda.statusEntrega && (
+                              <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] ${
+                                venda.statusEntrega === 'entregue'
+                                  ? 'bg-primary/20 text-primary'
+                                  : venda.statusEntrega === 'em_rota'
+                                  ? 'bg-purple-500/20 text-purple-600'
+                                  : venda.statusEntrega === 'preparando'
+                                  ? 'bg-orange-500/20 text-orange-600'
+                                  : 'bg-blue-500/20 text-blue-600'
+                              }`}>
+                                {venda.statusEntrega === 'entregue' ? 'Entregue'
+                                  : venda.statusEntrega === 'em_rota' ? 'Em rota'
+                                  : venda.statusEntrega === 'preparando' ? 'Separando'
+                                  : 'Aguardando'}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        {venda.tipoVenda === 'retirada' && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ✅ Retirada na hora
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-4">

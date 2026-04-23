@@ -253,6 +253,9 @@ export async function addVenda(venda: Omit<Venda, 'id' | 'createdAt'>): Promise<
       status: venda.status,
       valor_pago: venda.valorPago,
       observacoes: venda.observacoes || null,
+      tipo_venda: venda.tipoVenda,
+      data_entrega: venda.dataEntrega || null,
+      status_entrega: venda.statusEntrega || null,
     })
     .select()
     .single()
@@ -319,6 +322,9 @@ export async function updateVenda(id: string, updates: Partial<Venda>): Promise<
   if (updates.status !== undefined) updateData.status = updates.status
   if (updates.valorPago !== undefined) updateData.valor_pago = updates.valorPago
   if (updates.observacoes !== undefined) updateData.observacoes = updates.observacoes
+  if (updates.statusEntrega !== undefined) updateData.status_entrega = updates.statusEntrega
+  if (updates.dataEntrega !== undefined) updateData.data_entrega = updates.dataEntrega
+  if (updates.tipoVenda !== undefined) updateData.tipo_venda = updates.tipoVenda
   
   const { data, error } = await supabase
     .from('vendas')
@@ -508,6 +514,9 @@ function mapVendaFromDB(venda: Record<string, unknown>, itens: Record<string, un
     status: venda.status as 'pendente' | 'pago' | 'parcial',
     valorPago: Number(venda.valor_pago),
     observacoes: (venda.observacoes as string) || undefined,
+    tipoVenda: (venda.tipo_venda as 'retirada' | 'entrega') || 'entrega',
+    dataEntrega: (venda.data_entrega as string) || undefined,
+    statusEntrega: (venda.status_entrega as 'pendente' | 'preparando' | 'em_rota' | 'entregue') || undefined,
     createdAt: venda.created_at as string,
   }
 }
@@ -576,18 +585,17 @@ export function getGoogleMapsLink(endereco: string, cidade: string, bairro: stri
   return `https://www.google.com/maps/search/?api=1&query=${query}`
 }
 
-// Adicione no final do arquivo lib/storage.ts
 export async function atualizarStatusEntrega(vendaId: string, novoStatus: 'pendente' | 'preparando' | 'em_rota' | 'entregue') {
+  const supabase = getSupabase()
   const { error } = await supabase
     .from('vendas')
     .update({ status_entrega: novoStatus })
-    .eq('id', vendaId);
+    .eq('id', vendaId)
 
   if (error) {
-    console.error('Erro ao atualizar status de entrega:', error);
-    throw new Error('Falha ao atualizar status de entrega');
+    console.error('Erro ao atualizar status de entrega:', error)
+    throw new Error('Falha ao atualizar status de entrega')
   }
-  
-  return true;
-}
 
+  return true
+}
