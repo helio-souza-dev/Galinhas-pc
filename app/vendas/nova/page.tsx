@@ -39,6 +39,7 @@ export default function NovaVendaPage() {
 
   // Novo estado para status manual
   const [statusPagamentoManual, setStatusPagamentoManual] = useState<'pago' | 'pendente'>('pago')
+  
   const [observacoes, setObservacoes] = useState('')
   
   // Novos estados para a logística
@@ -172,6 +173,7 @@ export default function NovaVendaPage() {
       return
     }
 
+    // Define status baseado no dropdown manual
     const status = statusPagamentoManual
     const valorPago = statusPagamentoManual === 'pago' ? total : 0
 
@@ -180,20 +182,20 @@ export default function NovaVendaPage() {
 
     try {
       await addVenda({
-      clienteId,
-      clienteNome: cliente.nome,
-      itens,
-      subtotal,
-      frete: freteValor,
-      total,
-      formaPagamento,
-      status, // Usando o valor do dropdown manual
-      valorPago, // 0 se pendente, total se pago
-      observacoes,
-      tipoVenda,
-      dataEntrega: dataFinal,
-      statusEntrega,
-    })
+        clienteId,
+        clienteNome: cliente.nome,
+        itens,
+        subtotal,
+        frete: freteValor,
+        total,
+        formaPagamento,
+        status,
+        valorPago,
+        observacoes,
+        tipoVenda,
+        dataEntrega: dataFinal,
+        statusEntrega,
+      })
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Novo Pedido 🥚', {
@@ -448,15 +450,18 @@ export default function NovaVendaPage() {
                         disabled={tipoVenda === 'retirada'}
                       />
                     </div>
+                    
                     <div className="space-y-2">
                       <Label>Forma de Pagamento</Label>
                       <Select
                         value={formaPagamento}
-                        onValueChange={(v) =>
+                        onValueChange={(v) => {
                           setFormaPagamento(
                             v as 'dinheiro' | 'pix' | 'cartao' | 'fiado'
                           )
-                        }
+                          // Se escolher fiado, joga direto para pendente
+                          if (v === 'fiado') setStatusPagamentoManual('pendente')
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -471,15 +476,22 @@ export default function NovaVendaPage() {
                     </div>
                   </div>
 
-                  {/* NOVO: Campo Status do Pagamento */}
-  <div className="space-y-2">
-    <Label>Status do Pagamento</Label>
-    <Select
-      value={statusPagamentoManual}
-      onValueChange={(v: 'pago' | 'pendente') => setStatusPagamentoManual(v)}
-    ></Select>
-
-                  
+                  {/* NOVO CAMPO: Status de Pagamento Manual */}
+                  <div className="space-y-2">
+                    <Label>Status do Pagamento</Label>
+                    <Select
+                      value={statusPagamentoManual}
+                      onValueChange={(v: 'pago' | 'pendente') => setStatusPagamentoManual(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pago">Já foi Pago</SelectItem>
+                        <SelectItem value="pendente">Pendente (Não Pago)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="observacoes">Observações</Label>
