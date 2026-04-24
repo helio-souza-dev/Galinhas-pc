@@ -12,7 +12,13 @@ interface BotaoMercadoPagoProps {
   onLinkGerado?: (url: string) => void
 }
 
-export function BotaoMercadoPago({ venda, onLinkGerado }: BotaoMercadoPagoProps) {
+interface BotaoMercadoPagoProps {
+  venda: Venda
+  telefoneCliente?: string // <--- Adicione esta linha
+  onLinkGerado?: (url: string) => void
+}
+
+export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: BotaoMercadoPagoProps) {
   const [loading, setLoading] = useState(false)
   const [linkPagamento, setLinkPagamento] = useState<string | null>(null)
 
@@ -104,13 +110,15 @@ export function BotaoMercadoPago({ venda, onLinkGerado }: BotaoMercadoPagoProps)
                 Abrir link
               </Button>
             </a>
+
+            
             <Button
               size="sm"
               variant="outline"
               className="text-xs h-7 gap-1 border-green-400 text-green-600"
               onClick={() => {
-                // Pega o telefone do cliente se disponível via prop ou localStorage
-                const tel = prompt('Telefone do cliente (com DDD):')
+                // Tenta usar o telefone do banco. Se não existir, aí sim abre o popup.
+                const tel = telefoneCliente || prompt('Telefone do cliente não encontrado. Digite (com DDD):')
                 if (tel) enviarWhatsApp(tel)
               }}
             >

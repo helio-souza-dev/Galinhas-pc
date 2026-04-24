@@ -253,7 +253,10 @@ export default function VendaDetalhesPage() {
                 <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
                   
                   {/* Seu novo botão do Mercado Pago */}
-                  <BotaoMercadoPago venda={venda} />
+                  <BotaoMercadoPago 
+   venda={venda} 
+   telefoneCliente={cliente?.telefone} 
+/>
                   
                   <div className="relative flex items-center py-1">
                     <div className="flex-grow border-t border-border"></div>
