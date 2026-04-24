@@ -13,6 +13,7 @@ import {
   addPagamento,
   getGoogleMapsLink,
 } from '@/lib/storage'
+import { BotaoMercadoPago } from '@/components/botao-mercado-pago'
 import { Venda, Cliente } from '@/lib/types'
 import { Plus, Search, MapPin, Eye, DollarSign, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
