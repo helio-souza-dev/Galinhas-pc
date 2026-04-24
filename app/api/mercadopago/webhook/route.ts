@@ -55,7 +55,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ID de pagamento ausente' }, { status: 400 })
     }
 
-    const accessToken = process.env.MP_ACCESS_TOKEN
+    // Usa token correto: produção ou sandbox
+    const accessToken = live_mode
+      ? process.env.MP_ACCESS_TOKEN
+      : process.env.MP_ACCESS_TOKEN_TEST
     const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
