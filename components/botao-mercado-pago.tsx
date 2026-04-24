@@ -9,12 +9,7 @@ import { ExternalLink, Loader2 } from 'lucide-react'
 
 interface BotaoMercadoPagoProps {
   venda: Venda
-  onLinkGerado?: (url: string) => void
-}
-
-interface BotaoMercadoPagoProps {
-  venda: Venda
-  telefoneCliente?: string // <--- Adicione esta linha
+  telefoneCliente?: string
   onLinkGerado?: (url: string) => void
 }
 
@@ -25,8 +20,25 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
   const gerarLink = async () => {
     setLoading(true)
     try {
-      const appUrl = window.location.origin
-      const url = `${appUrl}/pagar/${venda.id}`
+      const response = await fetch('/api/mercadopago/criar-preferencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendaId: venda.id,
+          clienteNome: venda.clienteNome,
+          itens: venda.itens,
+          total: venda.total,
+          frete: venda.frete,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar link')
+
+      const data = await response.json()
+
+      // Em produção usa initPoint; em sandbox usa sandboxInitPoint
+      const isProd = process.env.NEXT_PUBLIC_MP_ENV === 'production'
+      const url = isProd ? data.initPoint : data.sandboxInitPoint
 
       setLinkPagamento(url)
       onLinkGerado?.(url)
@@ -53,7 +65,7 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
   if (venda.status === 'pago') {
     return (
       <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-700 font-medium">
-        ✅ Pago via MP
+        Pago via MP
       </span>
     )
   }
@@ -71,7 +83,6 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
           {loading ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            // Mercado Pago logo simplificado
             <svg viewBox="0 0 24 24" className="h-3 w-3 fill-blue-500" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-5.668 5.668a1.07 1.07 0 01-1.513 0L7.438 10.97a1.07 1.07 0 111.513-1.513l2.186 2.187 4.912-4.913a1.07 1.07 0 111.513 1.517z"/>
             </svg>
@@ -80,7 +91,7 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
         </Button>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs text-green-600 font-medium">✅ Link gerado e copiado!</p>
+          <p className="text-xs text-green-600 font-medium">Link gerado e copiado!</p>
           <div className="flex gap-2 flex-wrap">
             <a href={linkPagamento} target="_blank" rel="noopener noreferrer">
               <Button size="sm" variant="outline" className="text-xs h-7 gap-1">
@@ -88,14 +99,11 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
                 Abrir link
               </Button>
             </a>
-
-            
             <Button
               size="sm"
               variant="outline"
               className="text-xs h-7 gap-1 border-green-400 text-green-600"
               onClick={() => {
-                // Tenta usar o telefone do banco. Se não existir, aí sim abre o popup.
                 const tel = telefoneCliente || prompt('Telefone do cliente não encontrado. Digite (com DDD):')
                 if (tel) enviarWhatsApp(tel)
               }}
@@ -108,7 +116,7 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
             <Button
               size="sm" variant="ghost"
               className="text-xs h-7 text-muted-foreground"
-              onClick={() => { setLinkPagamento(null) }}
+              onClick={() => setLinkPagamento(null)}
             >
               Gerar novo
             </Button>

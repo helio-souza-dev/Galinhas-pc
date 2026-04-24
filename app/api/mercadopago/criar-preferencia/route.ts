@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server-admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Monta os itens no formato do Mercado Pago
     const mpItens = itens.map((item: { produtoNome: string; quantidade: number; precoUnitario: number }) => ({
       id: item.produtoNome,
       title: item.produtoNome,
@@ -26,7 +25,6 @@ export async function POST(request: NextRequest) {
       currency_id: 'BRL',
     }))
 
-    // Adiciona o frete como item separado se houver
     if (frete && frete > 0) {
       mpItens.push({
         id: 'frete',
@@ -39,28 +37,17 @@ export async function POST(request: NextRequest) {
 
     const preference = {
       items: mpItens,
-      payer: {
-        name: clienteNome,
-      },
-      // URLs de retorno após o pagamento
-      back_urls: {
-        success: `${appUrl}/vendas?mp=sucesso&venda=${vendaId}`,
-        failure: `${appUrl}/vendas?mp=falha&venda=${vendaId}`,
-        pending: `${appUrl}/vendas?mp=pendente&venda=${vendaId}`,
-      },
-      auto_return: 'approved',
-      // Webhook: MP vai chamar essa URL quando o pagamento for confirmado
+      payer: { name: clienteNome },
+      // SEM back_urls e SEM auto_return = sem botão "voltar à loja" no MP
       notification_url: `${appUrl}/api/mercadopago/webhook`,
-      // Referência externa para identificar a venda no webhook
       external_reference: vendaId,
-      // Expira em 24 horas
       expires: true,
       expiration_date_from: new Date().toISOString(),
       expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      statement_descriptor: 'Galinhas PC',
+      statement_descriptor: 'Ovos Galinha Feliz',
       payment_methods: {
         excluded_payment_types: [{ id: 'ticket' }], // só PIX e cartão
-        installments: 1, // sem parcelamento
+        installments: 1,
       },
     }
 
@@ -81,8 +68,8 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    // Salva o mp_preference_id na venda para rastrear
-    const supabase = await createClient() // <-- AWAIT AQUI!
+    // Admin client — bypassa RLS, funciona sem sessão
+    const supabase = createAdminClient()
     await supabase
       .from('vendas')
       .update({ mp_preference_id: data.id })
@@ -90,8 +77,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       preferenceId: data.id,
-      initPoint: data.init_point,       // URL de pagamento (produção)
-      sandboxInitPoint: data.sandbox_init_point, // URL de pagamento (sandbox/teste)
+      initPoint: data.init_point,
+      sandboxInitPoint: data.sandbox_init_point,
     })
   } catch (error) {
     console.error('Erro ao criar preferência:', error)
