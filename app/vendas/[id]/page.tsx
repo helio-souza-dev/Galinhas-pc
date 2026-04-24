@@ -25,6 +25,7 @@ import {
 } from '@/lib/storage'
 import { Venda, Cliente, Pagamento } from '@/lib/types'
 import { ArrowLeft, MapPin, Phone, DollarSign } from 'lucide-react'
+import { BotaoMercadoPago } from '@/components/botao-mercado-pago'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -247,55 +248,69 @@ export default function VendaDetalhesPage() {
                 </div>
               )}
 
+              {/* === AQUI ENTRA A INTEGRAÇÃO DOS BOTÕES === */}
               {venda.status !== 'pago' && (
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full mt-2 gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Registrar Pagamento
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Registrar Pagamento</DialogTitle>
-                      <DialogDescription>
-                        {formatCurrency(restante)} restante
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="valor">Valor (R$)</Label>
-                        <Input
-                          id="valor"
-                          value={valorPagamento}
-                          onChange={(e) => setValorPagamento(e.target.value)}
-                          placeholder="0,00"
-                        />
+                <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+                  
+                  {/* Seu novo botão do Mercado Pago */}
+                  <BotaoMercadoPago venda={venda} />
+                  
+                  <div className="relative flex items-center py-1">
+                    <div className="flex-grow border-t border-border"></div>
+                    <span className="flex-shrink-0 mx-2 text-xs text-muted-foreground uppercase">ou</span>
+                    <div className="flex-grow border-t border-border"></div>
+                  </div>
+
+                  {/* Seu Dialog de Pagamento Manual que já existia */}
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full gap-2 text-xs h-9">
+                        <DollarSign className="h-4 w-4" />
+                        Registrar manualmente (Dinheiro/Outro)
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Registrar Pagamento</DialogTitle>
+                        <DialogDescription>
+                          {formatCurrency(restante)} restante
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="valor">Valor (R$)</Label>
+                          <Input
+                            id="valor"
+                            value={valorPagamento}
+                            onChange={(e) => setValorPagamento(e.target.value)}
+                            placeholder="0,00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Forma de Pagamento</Label>
+                          <Select
+                            value={formaPagamento}
+                            onValueChange={(v: 'dinheiro' | 'pix' | 'cartao') =>
+                              setFormaPagamento(v)
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pix">PIX</SelectItem>
+                              <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                              <SelectItem value="cartao">Cartão</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Forma de Pagamento</Label>
-                        <Select
-                          value={formaPagamento}
-                          onValueChange={(v: 'dinheiro' | 'pix' | 'cartao') =>
-                            setFormaPagamento(v)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pix">PIX</SelectItem>
-                            <SelectItem value="dinheiro">Dinheiro</SelectItem>
-                            <SelectItem value="cartao">Cartao</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handlePagamento}>Confirmar</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button onClick={handlePagamento}>Confirmar</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               )}
             </CardContent>
           </Card>
