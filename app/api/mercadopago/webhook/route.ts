@@ -8,8 +8,9 @@ function validarAssinatura(
   rawBody: string,
   dataId: string
 ): boolean {
-  const secret = process.env.MP_WEBHOOK_SECRET
-  if (!secret) return true
+  const secret = body.live_mode
+  ? process.env.MP_WEBHOOK_SECRET
+  : process.env.MP_WEBHOOK_SECRET_TEST
 
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
