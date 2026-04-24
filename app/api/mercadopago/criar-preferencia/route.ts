@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
 
     // Salva o mp_preference_id na venda para rastrear
-    const supabase = createClient()
+    const supabase = await createClient() // <-- AWAIT AQUI!
     await supabase
       .from('vendas')
       .update({ mp_preference_id: data.id })
