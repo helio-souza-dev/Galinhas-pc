@@ -44,9 +44,8 @@ export function BotaoMercadoPago({ venda, telefoneCliente, onLinkGerado }: Botao
       const data = await response.json()
 
       // Em produção usa initPoint, em dev/sandbox usa sandboxInitPoint
-      const url = process.env.NODE_ENV === 'production'
-        ? data.initPoint
-        : data.sandboxInitPoint
+      // Forçando o link de teste (Sandbox)
+const url = data.sandboxInitPoint;
 
       setLinkPagamento(url)
       onLinkGerado?.(url)
