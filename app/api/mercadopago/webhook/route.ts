@@ -1,17 +1,18 @@
-// app/api/mercadopago/webhook/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server-admin'
 import crypto from 'crypto'
 
 function validarAssinatura(
   req: NextRequest,
-  rawBody: string,
-  dataId: string
+  dataId: string,
+  liveMode: boolean
 ): boolean {
-  const secret = body.live_mode
-  ? process.env.MP_WEBHOOK_SECRET
-  : process.env.MP_WEBHOOK_SECRET_TEST
-  if (!secret) return true
+  // Escolhe o secret correto baseado no ambiente
+  const secret = liveMode
+    ? process.env.MP_WEBHOOK_SECRET
+    : process.env.MP_WEBHOOK_SECRET_TEST
+
+  if (!secret) return true // sem secret configurado, aceita tudo
 
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
@@ -24,7 +25,6 @@ function validarAssinatura(
 
   if (!ts || !hash) return false
 
-  // ✅ Formato correto: id vem do body (data.id), não do x-request-id
   const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`
   const expectedHash = crypto
     .createHmac('sha256', secret)
@@ -39,11 +39,10 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text()
     const body = JSON.parse(rawBody)
 
-    const { type, data } = body
+    const { type, data, live_mode } = body
     const paymentId = data?.id
 
-    // ✅ Valida assinatura com o data.id correto
-    if (!validarAssinatura(request, rawBody, String(paymentId))) {
+    if (!validarAssinatura(request, String(paymentId), !!live_mode)) {
       console.warn('Webhook MP: assinatura inválida')
       return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
     }
@@ -75,11 +74,10 @@ export async function POST(request: NextRequest) {
     } = pagamento
 
     if (!vendaId) {
-      console.warn('Webhook MP: external_reference ausente')
+      console.warn('Webhook MP: external_reference ausente no pagamento', paymentId)
       return NextResponse.json({ ok: true })
     }
 
-    // ✅ Admin client — bypassa RLS, funciona sem sessão de usuário
     const supabase = createAdminClient()
 
     if (mpStatus === 'approved') {
@@ -99,13 +97,13 @@ export async function POST(request: NextRequest) {
       }
 
       await supabase.from('notificacoes').insert({
-        titulo: '💰 Pagamento confirmado!',
+        titulo: 'Pagamento confirmado',
         mensagem: `Pagamento de R$ ${valor?.toFixed(2)} confirmado via Mercado Pago.`,
         lida: false,
         venda_id: vendaId,
       })
 
-      console.log(`✅ Venda ${vendaId} marcada como PAGA (payment ${paymentId})`)
+      console.log(`Venda ${vendaId} marcada como PAGA (payment ${paymentId})`)
 
     } else if (mpStatus === 'pending' || mpStatus === 'in_process') {
       await supabase
@@ -113,13 +111,17 @@ export async function POST(request: NextRequest) {
         .update({ status: 'pendente', mp_payment_id: String(paymentId) })
         .eq('id', vendaId)
 
+      console.log(`Venda ${vendaId} com pagamento PENDENTE (payment ${paymentId})`)
+
     } else if (mpStatus === 'rejected' || mpStatus === 'cancelled') {
       await supabase.from('notificacoes').insert({
-        titulo: '❌ Pagamento recusado',
-        mensagem: `Pagamento via Mercado Pago foi recusado ou cancelado.`,
+        titulo: 'Pagamento recusado',
+        mensagem: 'Pagamento via Mercado Pago foi recusado ou cancelado.',
         lida: false,
         venda_id: vendaId,
       })
+
+      console.log(`Venda ${vendaId} com pagamento RECUSADO (status: ${mpStatus})`)
     }
 
     return NextResponse.json({ ok: true })
@@ -131,5 +133,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, service: 'Galinhas PC Webhook' })
+  return NextResponse.json({ ok: true, service: 'Ovos Galinha Feliz Webhook' })
 }
