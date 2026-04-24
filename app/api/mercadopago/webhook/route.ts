@@ -11,6 +11,7 @@ function validarAssinatura(
   const secret = body.live_mode
   ? process.env.MP_WEBHOOK_SECRET
   : process.env.MP_WEBHOOK_SECRET_TEST
+  if (!secret) return true
 
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
