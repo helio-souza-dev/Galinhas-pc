@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const supabase = createClient()
+    const supabase = await createClient() // <--- Adicione o AWAIT aqui!
 
     // Mapeia o status do MP para o status do sistema
     if (mpStatus === 'approved') {
